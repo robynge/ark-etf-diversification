@@ -42,6 +42,9 @@ SPX/
 # Generated figures
 figures/*
 !figures/ark_etf/
+!figures/with_dividends/
+!figures/price_only/
+!figures/comparison/
 
 # PDF files
 *.pdf
