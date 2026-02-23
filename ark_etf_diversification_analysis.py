@@ -385,6 +385,130 @@ def compute_annualized_return(mean_return: float, freq: str) -> float:
 
 
 # ============================================================================
+# Statistical Tests (Following Evans & Archer 1968, Journal p.766)
+# ============================================================================
+
+def compute_statistical_tests(results: pd.DataFrame, alpha: float = 0.05) -> dict:
+    """
+    Compute t-tests and F-tests following Evans & Archer (1968) methodology.
+
+    From the original paper (p.766):
+    "(1) t-tests on successive mean portfolio standard deviations, which
+    indicated on the average the significance of successive increases in
+    portfolio size; and (2) F-tests on successive standard deviations about
+    the mean portfolio standard deviation, which tend to indicate convergence
+    of the individual observations on the mean values."
+
+    Returns:
+        Dictionary with test results
+    """
+    from scipy import stats
+
+    sizes = sorted(results['portfolio_size'].unique())
+    max_size = max(sizes)
+
+    test_results = {
+        'basic_stats': [],
+        'securities_needed_t_test': [],
+        'securities_needed_f_test': [],
+    }
+
+    # 1. Basic statistics for each portfolio size
+    for size in sizes:
+        data = results[results['portfolio_size'] == size]['std_dev']
+        test_results['basic_stats'].append({
+            'portfolio_size': size,
+            'mean_std': data.mean(),
+            'std_of_std': data.std(),
+            'variance_of_std': data.var(),
+            'n_obs': len(data)
+        })
+
+    # 2. Find minimum securities needed for significant reduction (t-test)
+    for start_size in sizes:
+        if start_size >= max_size:
+            continue
+
+        start_data = results[results['portfolio_size'] == start_size]['std_dev']
+        securities_needed = None
+
+        for end_size in range(start_size + 1, max_size + 1):
+            end_data = results[results['portfolio_size'] == end_size]['std_dev']
+
+            # One-tailed t-test: is mean SD at end_size significantly LOWER?
+            t_stat, t_pval_two = stats.ttest_ind(start_data, end_data)
+            t_pval = t_pval_two / 2 if t_stat > 0 else 1 - t_pval_two / 2
+
+            if t_pval < alpha:
+                securities_needed = end_size - start_size
+                break
+
+        test_results['securities_needed_t_test'].append({
+            'starting_size': start_size,
+            'securities_needed': securities_needed if securities_needed else None,
+            'no_significance_within_range': securities_needed is None
+        })
+
+    # 3. Find minimum securities needed for significant variance reduction (F-test)
+    for start_size in sizes:
+        if start_size >= max_size:
+            continue
+
+        start_data = results[results['portfolio_size'] == start_size]['std_dev']
+        start_var = start_data.var()
+        securities_needed = None
+
+        for end_size in range(start_size + 1, max_size + 1):
+            end_data = results[results['portfolio_size'] == end_size]['std_dev']
+            end_var = end_data.var()
+
+            # F-test: is variance at end_size significantly LOWER?
+            if end_var > 0:
+                f_stat = start_var / end_var
+                df1 = len(start_data) - 1
+                df2 = len(end_data) - 1
+                f_pval = 1 - stats.f.cdf(f_stat, df1, df2)
+
+                if f_pval < alpha:
+                    securities_needed = end_size - start_size
+                    break
+
+        test_results['securities_needed_f_test'].append({
+            'starting_size': start_size,
+            'securities_needed': securities_needed if securities_needed else None,
+            'no_significance_within_range': securities_needed is None
+        })
+
+    return test_results
+
+
+def print_statistical_tests(test_results: dict, etf_name: str, period_name: str, weight_label: str, max_size: int = 40):
+    """Print statistical test results matching Evans & Archer (1968) style."""
+
+    print(f"\n  [{weight_label}] Securities needed for significant reduction (α=0.05):")
+    print(f"  {'Start':<8} {'t-test':<12} {'F-test':<12}")
+    print(f"  {'-'*32}")
+
+    key_sizes = [1, 2, 5, 8, 10, 15, 20]
+    key_sizes = [s for s in key_sizes if s < max_size]
+
+    t_test_dict = {r['starting_size']: r for r in test_results['securities_needed_t_test']}
+    f_test_dict = {r['starting_size']: r for r in test_results['securities_needed_f_test']}
+
+    for start in key_sizes:
+        t_row = t_test_dict.get(start, {})
+        f_row = f_test_dict.get(start, {})
+
+        t_needed = t_row.get('securities_needed')
+        f_needed = f_row.get('securities_needed')
+
+        t_str = str(t_needed) if t_needed else f">{max_size - start}"
+        f_str = str(f_needed) if f_needed else f">{max_size - start}"
+
+        print(f"  {start:<8} +{t_str:<11} +{f_str:<11}")
+
+
+# ============================================================================
 # Visualization Functions
 # ============================================================================
 
@@ -926,6 +1050,24 @@ def main():
 
     summary_df.to_csv(output_base / "summary_results.csv", index=False)
     print(f"\nSaved summary to: {output_base / 'summary_results.csv'}")
+
+    # Statistical tests (Evans & Archer 1968 method)
+    print("\n" + "="*70)
+    print("STATISTICAL TESTS (Evans & Archer 1968 Method)")
+    print("="*70)
+    print("\nSecurities needed for significant reduction in mean SD (α=0.05)")
+
+    for period_name, etf_results in all_results.items():
+        print(f"\n>>> {period_name}")
+        for etf_name, etf_data in etf_results.items():
+            print(f"\n  {etf_name}:")
+            for weight_key, weight_label in weight_types:
+                if weight_key not in etf_data:
+                    continue
+                data = etf_data[weight_key]
+                max_size = data['results']['portfolio_size'].max()
+                test_results = compute_statistical_tests(data['results'])
+                print_statistical_tests(test_results, etf_name, period_name, weight_label, max_size)
 
     # Missing data summary
     if missing_data_summary:
