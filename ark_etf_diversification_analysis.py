@@ -10,8 +10,8 @@ Input Data:
 - Backup prices from prices.xlsx
 
 Output:
-- figures/ark_etf/{etf_name}/ - Individual ETF figures
-- figures/ark_etf/comparison/ - Comparison figures across ETFs
+- output/ark_etf/{etf_name}/ - Individual ETF figures
+- output/ark_etf/comparison/ - Comparison figures across ETFs
 """
 
 import numpy as np
@@ -701,7 +701,7 @@ def main():
     base_dir = Path(__file__).parent
     data_dir = base_dir / "ark_etf"
 
-    output_base = base_dir / "figures" / "ark_etf"
+    output_base = base_dir / "output" / "ark_etf"
     output_comparison = output_base / "comparison"
     output_comparison.mkdir(parents=True, exist_ok=True)
     for etf in ETF_LIST:

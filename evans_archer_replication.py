@@ -3,9 +3,9 @@ Evans & Archer (1968) Replication
 "Diversification and the Reduction of Dispersion: An Empirical Analysis"
 The Journal of Finance, Vol. 23, No. 5 (Dec., 1968), pp. 761-767
 
-This script generates TWO sets of figures:
-1. With Dividends (Total Return) - figures/with_dividends/
-2. Price Only (No Dividends)     - figures/price_only/
+This script generates TWO sets of output:
+1. With Dividends (Total Return) - output/with_dividends/
+2. Price Only (No Dividends)     - output/price_only/
 
 Data Source: CRSP/WRDS (1958-1967, S&P 500 constituents)
 Simulation: 1000 runs, portfolio sizes 1-40
@@ -950,9 +950,9 @@ def main():
     data_dir = base_dir / "wrds"
 
     # Create separate output directories
-    output_dir_with_div = base_dir / "figures" / "with_dividends"
-    output_dir_price_only = base_dir / "figures" / "price_only"
-    output_dir_comparison = base_dir / "figures" / "comparison"
+    output_dir_with_div = base_dir / "output" / "with_dividends"
+    output_dir_price_only = base_dir / "output" / "price_only"
+    output_dir_comparison = base_dir / "output" / "comparison"
 
     output_dir_with_div.mkdir(parents=True, exist_ok=True)
     output_dir_price_only.mkdir(parents=True, exist_ok=True)

@@ -39,12 +39,12 @@ wrds/
 ark_etf/
 SPX/
 
-# Generated figures
-figures/*
-!figures/ark_etf/
-!figures/with_dividends/
-!figures/price_only/
-!figures/comparison/
+# Generated output
+output/*
+!output/ark_etf/
+!output/with_dividends/
+!output/price_only/
+!output/comparison/
 
 # PDF files
 *.pdf

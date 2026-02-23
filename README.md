@@ -1,62 +1,66 @@
-# ARK ETF Diversification Analysis
+# Diversification Analysis
 
-Replication of Evans & Archer (1968) methodology using ARK ETF holdings data.
+Replication of Evans & Archer (1968) methodology using S&P 500 and ARK ETF holdings data.
 
 ## Overview
 
-This project analyzes the diversification effects of portfolio construction using holdings from ARK Invest ETFs. It follows the classic Evans & Archer (1968) approach to demonstrate how portfolio risk (standard deviation) decreases as the number of securities increases.
+This project analyzes the diversification effects of portfolio construction. It follows the classic Evans & Archer (1968) approach to demonstrate how portfolio risk (standard deviation) decreases as the number of securities increases.
 
 ## Data Sources
 
+- **S&P 500**: CRSP/WRDS historical data (1958-1967) for original replication
 - **ARK ETF Holdings**: Daily holdings and weights from ARK Invest ETFs (ARKK, ARKF, ARKG, ARKQ, ARKW, ARKX)
-- **Price Data**: Historical stock prices from `prices.xlsx` (backup source)
 
 ## Main Scripts
 
 | File | Description |
 |------|-------------|
-| `ark_etf_diversification_analysis.py` | Main analysis script - runs Monte Carlo simulations |
-| `ark_etf/` | Directory containing ETF holdings data |
-| `figures/ark_etf/` | Output directory for generated figures |
+| `evans_archer_replication.py` | Original paper replication using S&P 500 data |
+| `ark_etf_diversification_analysis.py` | Extended analysis using ARK ETF holdings |
 
 ## Usage
 
 ```bash
+# S&P 500 replication (requires WRDS data)
+python evans_archer_replication.py
+
+# ARK ETF analysis
 python ark_etf_diversification_analysis.py
 ```
 
 ## Output Structure
 
 ```
-figures/ark_etf/
-├── comparison/           # Cross-ETF comparison charts
-│   └── comparison_*.png
-├── ARKK/                 # Individual ETF results
-├── ARKF/
-├── ARKG/
-├── ARKQ/
-├── ARKW/
-├── ARKX/
-└── summary_results.csv   # Summary statistics
+output/
+├── with_dividends/       # S&P 500 with dividends
+├── price_only/           # S&P 500 price only
+├── comparison/           # S&P 500 comparison charts
+└── ark_etf/
+    ├── comparison/       # Cross-ETF comparison
+    ├── ARKK/
+    ├── ARKF/
+    ├── ARKG/
+    ├── ARKQ/
+    ├── ARKW/
+    ├── ARKX/
+    └── summary_results.csv
 ```
 
 ## Methodology
 
-The analysis performs Monte Carlo simulations with two weighting schemes:
+Monte Carlo simulations with two weighting schemes:
 - **Equal Weighted**: Each security receives equal weight (1/n)
-- **MarketCap Weighted**: Securities weighted by their ARK ETF holdings weight
+- **MarketCap Weighted**: Securities weighted by holdings weight
 
-For each portfolio size (1 to N securities), the script:
-1. Randomly selects securities
-2. Computes portfolio log returns
-3. Calculates annualized standard deviation
-4. Fits a hyperbolic model: Y = B/X + A
+For each portfolio size (1 to N securities):
+1. Randomly select securities
+2. Compute portfolio log returns
+3. Calculate annualized standard deviation
+4. Fit hyperbolic model: Y = B/X + A
 
-## Time Periods
-
-- 60 Days (Daily/Weekly)
-- 120 Days (Daily/Weekly)
-- 250 Days (Daily/Weekly)
+Statistical tests following Evans & Archer (1968):
+- t-test: Significant reduction in mean SD
+- F-test: Convergence of variance
 
 ## Reference
 
