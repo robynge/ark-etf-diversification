@@ -473,6 +473,7 @@ def plot_figure1_single(
 
     ax.set_xlabel('Portfolio size')
     ax.set_ylabel('Mean portfolio std dev')
+    ax.set_title(title, fontsize=14, fontweight='bold', loc='left')
     ax.set_xlim(0, X.max() + 2)
     ax.set_ylim(min(params['sys_risk'], Y.min()) * 0.95, Y.max() * 1.08)
 
