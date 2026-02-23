@@ -39,8 +39,9 @@ wrds/
 ark_etf/
 SPX/
 
-# Generated figures (too large for git, can be regenerated)
-figures/
+# Generated figures
+figures/*
+!figures/ark_etf/
 
 # PDF files
 *.pdf
