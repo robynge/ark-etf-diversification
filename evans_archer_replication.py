@@ -66,6 +66,22 @@ def apply_publication_style(font_size: int = 16, axes_linewidth: float = 2.5):
 # Data Processing - Price Only Returns
 # ============================================================================
 
+def load_sp500_daily_data(data_dir: Path) -> pd.DataFrame:
+    """Load S&P 500 daily log returns and return as periods x securities matrix."""
+    csv_path = data_dir / 'sp500_daily' / 'final' / 'sp500_daily_log_returns.csv'
+    df = pd.read_csv(csv_path, index_col='Date')
+
+    # Keep only tickers with complete data (no NaN)
+    n_before = df.shape[1]
+    df = df.dropna(axis=1)
+    n_after = df.shape[1]
+
+    print(f"Loaded S&P 500 daily data: {df.shape[0]} days x {n_before} tickers")
+    print(f"After removing incomplete tickers: {n_after} tickers ({n_before - n_after} removed)")
+
+    return df
+
+
 def compute_price_only_returns(data_dir: Path) -> pd.DataFrame:
     """
     Compute semi-annual log returns using PRICE ONLY (retx, excluding dividends).
@@ -150,7 +166,8 @@ def run_simulation(
     log_returns: pd.DataFrame,
     max_portfolio_size: int = 40,
     n_runs: int = 1000,
-    random_seed: int = 42
+    random_seed: int = 42,
+    label: str = ""
 ) -> pd.DataFrame:
     """Run the Evans & Archer simulation."""
     np.random.seed(random_seed)
@@ -159,7 +176,7 @@ def run_simulation(
     n_securities = len(all_columns)
     max_portfolio_size = min(max_portfolio_size, n_securities)
 
-    print(f"\nRunning simulation (PRICE ONLY):")
+    print(f"\nRunning simulation{' (' + label + ')' if label else ''}:")
     print(f"  Number of runs: {n_runs}")
     print(f"  Max portfolio size: {max_portfolio_size}")
     print(f"  Available securities: {n_securities}")
@@ -463,11 +480,15 @@ def plot_figure1_single(
             transform=ax.transAxes, va='top')
 
     # Add return information if available
-    if 'semi_annual_ret' in params and 'annual_ret' in params:
+    if 'annual_ret' in params:
         ax.text(xs, ys-7*lh, f'Mean Return (1 security):', fontsize=10,
                 transform=ax.transAxes, va='top')
-        ax.text(xs, ys-8*lh, f'  Semi-annual: {params["semi_annual_ret"]:.2f}%', fontsize=10,
-                transform=ax.transAxes, va='top')
+        if 'semi_annual_ret' in params:
+            ax.text(xs, ys-8*lh, f'  Semi-annual: {params["semi_annual_ret"]:.2f}%', fontsize=10,
+                    transform=ax.transAxes, va='top')
+        elif 'daily_ret' in params:
+            ax.text(xs, ys-8*lh, f'  Daily: {params["daily_ret"]:.4f}%', fontsize=10,
+                    transform=ax.transAxes, va='top')
         ax.text(xs, ys-9*lh, f'  Annualized:  {params["annual_ret"]:.2f}%', fontsize=10,
                 transform=ax.transAxes, va='top')
 
@@ -608,7 +629,8 @@ def plot_return_by_portfolio_size(
     output_path: Path,
     color_main: str,
     color_secondary: str,
-    figsize: tuple = (10, 7)
+    figsize: tuple = (10, 7),
+    return_label: str = "Return (%, semi-annual)"
 ):
     """
     Plot return vs portfolio size showing ALL simulation points (scatter plot).
@@ -617,7 +639,7 @@ def plot_return_by_portfolio_size(
     apply_publication_style(font_size=14, axes_linewidth=2.2)
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Convert geometric mean return to semi-annual percentage
+    # Convert geometric mean return to percentage
     results_copy = results.copy()
     results_copy['return_pct'] = (results_copy['mean_return'] - 1) * 100
 
@@ -655,7 +677,7 @@ def plot_return_by_portfolio_size(
             ha='right', va='top', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
     ax.set_xlabel('Portfolio size (number of securities)')
-    ax.set_ylabel('Return (%, semi-annual)')
+    ax.set_ylabel(return_label)
     ax.set_title(title, fontweight='bold', loc='left')
     ax.set_xlim(0, X.max() + 2)
     y_range = Y_max.max() - Y_min.min()
@@ -737,14 +759,16 @@ def plot_volatility_distribution(
     output_path: Path,
     color_main: str,
     color_secondary: str,
-    figsize: tuple = (10, 7)
+    figsize: tuple = (10, 7),
+    ann_factor: float = None
 ):
     """Plot volatility distribution by portfolio size (annualized)."""
     apply_publication_style(font_size=14, axes_linewidth=2.2)
     fig, ax = plt.subplots(figsize=figsize)
 
-    # Semi-annual std dev * sqrt(2) for annualization
-    ann_factor = np.sqrt(2)
+    # Default: semi-annual std dev * sqrt(2) for annualization
+    if ann_factor is None:
+        ann_factor = np.sqrt(2)
 
     stats = results.groupby('portfolio_size')['std_dev'].agg(
         ['mean', 'std', 'min', 'max', 'count']
@@ -992,10 +1016,10 @@ def main():
     print("-"*70)
 
     print("\n>>> With Dividends:")
-    results_with_div = run_simulation(log_returns_with_div, random_seed=42)
+    results_with_div = run_simulation(log_returns_with_div, random_seed=42, label="WITH DIVIDENDS")
 
     print("\n>>> Price Only:")
-    results_price_only = run_simulation(log_returns_price_only, random_seed=42)
+    results_price_only = run_simulation(log_returns_price_only, random_seed=42, label="PRICE ONLY")
 
     # ========== FIT MODELS ==========
     print("\n" + "-"*70)
@@ -1252,6 +1276,86 @@ Output Files:
    - Price Only:     {output_dir_price_only}
    - Comparison:     {output_dir_comparison}
 """)
+
+    # ======================================================================
+    # S&P 500 DAILY DATA (2024-2026)
+    # ======================================================================
+    print("\n\n" + "="*70)
+    print("S&P 500 DAILY DATA (2024-2026)")
+    print("="*70)
+
+    output_dir_daily = base_dir / "output" / "sp500_daily"
+    output_dir_daily.mkdir(parents=True, exist_ok=True)
+
+    # Load daily data
+    log_returns_daily = load_sp500_daily_data(base_dir / "data")
+
+    # Run simulation
+    results_daily = run_simulation(log_returns_daily, random_seed=42, label="S&P 500 DAILY")
+
+    # Fit model
+    A_d, B_d, R2_d = fit_hyperbola(results_daily)
+    sys_risk_d = compute_systematic_risk(log_returns_daily)
+
+    # Compute return params (daily → annualized)
+    mean_ret_d = results_daily[results_daily['portfolio_size']==1]['mean_return'].mean()
+    daily_ret_pct = (mean_ret_d - 1) * 100
+    annual_ret_d = (mean_ret_d ** 252 - 1) * 100
+
+    params_daily = {
+        'A': A_d, 'B': B_d, 'R2': R2_d, 'sys_risk': sys_risk_d,
+        'daily_ret': daily_ret_pct,
+        'annual_ret': annual_ret_d
+    }
+
+    print(f"\n{'Parameter':<25} {'Value':<18}")
+    print("-"*43)
+    print(f"{'A (asymptote)':<25} {A_d:<18.6f}")
+    print(f"{'B (coefficient)':<25} {B_d:<18.6f}")
+    print(f"{'R²':<25} {R2_d:<18.6f}")
+    print(f"{'Systematic risk':<25} {sys_risk_d:<18.6f}")
+    print(f"{'Daily return':<25} {daily_ret_pct:<18.4f}%")
+    print(f"{'Annualized return':<25} {annual_ret_d:<18.2f}%")
+
+    # Plots
+    print("\n>>> Figure 1 (SD vs portfolio size):")
+    plot_figure1_single(
+        results_daily, params_daily,
+        title="S&P 500 (2024-2026) - Daily Returns",
+        output_path=output_dir_daily / "figure1",
+        color_main=PALETTE["blue_main"],
+        color_secondary=PALETTE["blue_secondary"]
+    )
+
+    print("\n>>> Return plot:")
+    plot_return_by_portfolio_size(
+        results_daily, params_daily,
+        title="S&P 500 (2024-2026) - Mean Return",
+        output_path=output_dir_daily / "returns",
+        color_main=PALETTE["blue_main"],
+        color_secondary=PALETTE["blue_secondary"],
+        return_label="Return (%, daily)"
+    )
+
+    print("\n>>> Volatility plot:")
+    plot_volatility_distribution(
+        results_daily, params_daily,
+        title="S&P 500 (2024-2026) - Volatility",
+        output_path=output_dir_daily / "volatility",
+        color_main=PALETTE["blue_main"],
+        color_secondary=PALETTE["blue_secondary"],
+        ann_factor=np.sqrt(252)
+    )
+
+    # Save results
+    results_daily.to_csv(output_dir_daily / "simulation_results.csv", index=False)
+
+    # Statistical tests
+    print("\n>>> Statistical Tests:")
+    test_results_daily = compute_statistical_tests(results_daily)
+    print_statistical_tests(test_results_daily, output_dir_daily, "SP500 Daily")
+
+    print(f"\nS&P 500 Daily output saved to: {output_dir_daily}")
 
     return results_with_div, results_price_only, params_with_div, params_price_only
 
